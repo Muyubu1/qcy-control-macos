@@ -294,7 +294,7 @@ struct BatteryView: View {
     let title: String; let b: Battery
     var body: some View {
         VStack(spacing: 2) {
-            Image(systemName: b.charging ? "battery.100.bolt" : icon).foregroundStyle((0..<20).contains(b.level) ? Color.red : Color.primary)
+            Image(systemName: b.charging ? "battery.100.bolt" : icon).foregroundStyle((0..<20).contains(b.level) ? Color.red : (b.level < 0 ? Color.secondary : Color.primary))
             Text(b.level < 0 ? "–" : "\(b.level)%").font(.system(.body, design: .rounded).monospacedDigit())
             Text(title).font(.caption).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity)
@@ -323,7 +323,7 @@ struct ContentView: View {
             HStack {
                 BatteryView(title: "Sol", b: dev.left)
                 BatteryView(title: "Sağ", b: dev.right)
-                BatteryView(title: "Kutu", b: dev.box)
+                BatteryView(title: "Kutu", b: dev.box.level == 0 && !dev.box.charging ? Battery(level: -1, charging: false) : dev.box)
             }
             Divider()
             Picker("", selection: $tab) { Text("Ses").tag(0); Text("Ekolayzır").tag(1); Text("Dokunma").tag(2) }

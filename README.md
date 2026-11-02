@@ -7,6 +7,11 @@ Switch **ANC / transparency**, change the **EQ**, toggle **gaming mode**, adjust
 
 [Türkçe açıklama aşağıda](#türkçe)
 
+<p>
+  <img src="docs/sound.png" alt="Sound tab: battery, ANC/transparency, gaming mode, balance" width="360">
+  <img src="docs/touch.png" alt="Touch tab: remap single/double/triple tap per earbud" width="360">
+</p>
+
 ## Features
 - Battery for left, right and case (with charging state)
 - Noise control: **Off / ANC / Transparency**
