@@ -3,7 +3,7 @@ set -e
 cd "$(dirname "$0")"
 APP="QCY Kontrol.app"
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS"
-swiftc -O -parse-as-library -target arm64-apple-macos13 QCYKontrol.swift -o "$APP/Contents/MacOS/QCYKontrol"
+swiftc -O -parse-as-library -target arm64-apple-macos13 QCYKontrol.swift -framework IOBluetooth -o "$APP/Contents/MacOS/QCYKontrol"
 cat > "$APP/Contents/Info.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

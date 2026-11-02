@@ -2,6 +2,8 @@
 // Protokol: github.com/hui1601/quicky (docs/protocol.md) + kendi ölçümlerimiz (fw 2.0.4).
 import SwiftUI
 import CoreBluetooth
+import IOBluetooth
+import ServiceManagement
 
 // MARK: - UUID'ler
 enum U {
@@ -72,9 +74,43 @@ final class QCYDevice: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var chars: [CBUUID: CBCharacteristic] = [:]
     private var keyRaw: [UInt8] = []
 
+    /// Mac'in kulaklıkla ses (klasik Bluetooth) bağlantısı var mı? Menü simgesi buna bağlı.
+    @Published var audioConnected = false
+    private var connectNote: IOBluetoothUserNotification?
+    private var disconnectNotes: [IOBluetoothUserNotification] = []
+
     override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: .main)
+        connectNote = IOBluetoothDevice.register(forConnectNotifications: self, selector: #selector(btConnected(_:device:)))
+        for d in (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? [] where Self.isQCY(d) && d.isConnected() {
+            watch(d)
+        }
+    }
+
+    static func isQCY(_ d: IOBluetoothDevice) -> Bool { (d.name ?? "").uppercased().contains("QCY") }
+
+    @objc private func btConnected(_ n: IOBluetoothUserNotification, device d: IOBluetoothDevice) {
+        guard Self.isQCY(d) else { return }
+        watch(d)
+    }
+
+    private func watch(_ d: IOBluetoothDevice) {
+        if let n = d.register(forDisconnectNotification: self, selector: #selector(btDisconnected(_:device:))) {
+            disconnectNotes.append(n)
+        }
+        audioConnected = true
+        start()
+    }
+
+    @objc private func btDisconnected(_ n: IOBluetoothUserNotification, device d: IOBluetoothDevice) {
+        n.unregister()
+        disconnectNotes.removeAll { $0 === n }
+        audioConnected = false
+        central.stopScan()
+        if let p = peripheral { central.cancelPeripheralConnection(p) }
+        connected = false; peripheral = nil; chars = [:]
+        status = "Kulaklık bağlı değil"
     }
 
     // Tarama
@@ -89,6 +125,7 @@ final class QCYDevice: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
 
     func start() {
         guard central.state == .poweredOn, peripheral == nil else { return }
+        guard audioConnected else { status = "Kulaklık bağlı değil"; return }
         if let p = central.retrieveConnectedPeripherals(withServices: [U.service]).first {
             attach(p); return
         }
@@ -300,7 +337,10 @@ struct ContentView: View {
             }.disabled(!dev.connected)
             Divider()
             HStack {
-                Text("Protokol: hui1601/quicky").font(.caption2).foregroundStyle(.tertiary)
+                Toggle("Açılışta başlat", isOn: Binding(
+                    get: { SMAppService.mainApp.status == .enabled },
+                    set: { on in try? on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister() }
+                )).toggleStyle(.checkbox).font(.caption)
                 Spacer()
                 Button("Çıkış") { NSApp.terminate(nil) }.buttonStyle(.borderless)
             }
@@ -391,8 +431,19 @@ struct ContentView: View {
 @main
 struct QCYKontrolApp: App {
     @StateObject private var dev = QCYDevice()
+
+    init() {
+        // İlk çalıştırmada Mac açılışında otomatik başlat (Sistem Ayarları › Genel › Giriş Öğeleri'nden kapatılabilir).
+        let key = "loginItemRegistered"
+        if !UserDefaults.standard.bool(forKey: key) {
+            try? SMAppService.mainApp.register()
+            UserDefaults.standard.set(true, forKey: key)
+        }
+    }
+
     var body: some Scene {
-        MenuBarExtra {
+        // Simge yalnız kulaklık Mac'e bağlıyken görünür.
+        MenuBarExtra(isInserted: Binding(get: { dev.audioConnected }, set: { _ in })) {
             ContentView(dev: dev)
         } label: {
             Image(systemName: dev.ancMode == .anc ? "earbuds.case.fill" : "earbuds")
