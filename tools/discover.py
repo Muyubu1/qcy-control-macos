@@ -1,4 +1,4 @@
-"""Salt okunur keşif: QCY BLE yayınlarını bulur, GATT servislerini listeler. Kulaklığa hiçbir şey yazmaz."""
+"""Read-only discovery: finds QCY BLE advertisements and lists GATT services. Writes nothing to the earbuds."""
 import asyncio
 from bleak import BleakScanner, BleakClient
 
@@ -17,7 +17,7 @@ async def main():
         await asyncio.sleep(12)
 
     if not found:
-        print("QCY BLE yayını bulunamadı.")
+        print("No QCY BLE advertisement found. (Already-connected earbuds stop advertising.)")
         return
     for addr, (dev, adv) in found.items():
         md = adv.manufacturer_data.get(QCY, b"")
@@ -25,8 +25,8 @@ async def main():
         print("  manuf:", md.hex(" "))
         if len(md) >= 8:
             vid = md[0] << 8 | md[1]
-            b = lambda x: f"{x & 0x7F}%{' (şarjda)' if x & 0x80 else ''}"
-            print(f"  vendorId={vid}  sol={b(md[5])} sağ={b(md[6])} kutu={b(md[7])}")
+            b = lambda x: f"{x & 0x7F}%{' (charging)' if x & 0x80 else ''}"
+            print(f"  vendorId={vid}  left={b(md[5])} right={b(md[6])} case={b(md[7])}")
     for addr, (dev, adv) in found.items():
         if QCY not in adv.manufacturer_data:
             continue
@@ -38,7 +38,7 @@ async def main():
                     for ch in s.characteristics:
                         print("    C", ch.uuid, ",".join(ch.properties))
         except Exception as e:
-            print("  bağlanamadı:", repr(e))
+            print("  could not connect:", repr(e))
 
 
 asyncio.run(main())
